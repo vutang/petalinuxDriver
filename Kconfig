@@ -1,0 +1,13 @@
+# menuconfig VIETTEL
+#   bool "Viettel driver platform"
+#   default y
+
+# if VIETTEL
+
+# config VIP
+#   bool "VIP"
+#   default y
+#   help
+#     Viettel RRU MIMO
+
+# endif # VIETTEL
