@@ -15,7 +15,8 @@
 #define XHLS_ACCEL_CONTROL_BUS_ADDR_ISR     0x3
 
 /*Control Bit*/
-#define XHLS_ACCEL_CONTROL_BUS_START_BIT 	0x01
+#define XHLS_ACCEL_CONTROL_BUS_AP_START_BIT 	0x01
+#define XHLS_ACCEL_CONTROL_BUS_AP_READY_BIT 	0x01 << 3
 
 struct vxhls_state{
 	int id;

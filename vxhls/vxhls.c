@@ -42,7 +42,7 @@ static inline int vxhls_read(struct vxhls_state *st, unsigned reg) {
 }
 
 static inline void vxhls_write(struct vxhls_state *st, unsigned reg, unsigned val) {
-	iowrite32(val, st->regs + reg);
+	iowrite32(val, (u32 *) st->regs + reg);
 }
 
 int vxhls_read_reg(u32 reg) {
@@ -72,7 +72,7 @@ static int vxhls_probe(struct platform_device *pdev) {
 	int rc;
 
 	struct resource *mem;
-	printk("[VUTT6] Probing device %s...\n", pdev->dev.of_node->name);
+	printk("%s: Probing device %s...\n", __func__, pdev->dev.of_node->name);
 	id = of_match_device(vxhls_of_match, &pdev->dev);
 	if(!id){
 		return -ENODEV;
@@ -117,9 +117,6 @@ static struct platform_driver vxhls_driver = {
 static int __init vxhls_init(void)
 {
 	printk("<1>Hello module world.\n");
-	// printk("<1>Module parameters were (0x%08x) and \"%s\"\n", myint,
-	       // mystr);
-
 	return platform_driver_register(&vxhls_driver);
 }
 

@@ -6,6 +6,7 @@
 
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include <linux/delay.h>
 #include <asm/io.h>
 
 #include <linux/amba/xilinx_dma.h>
@@ -44,6 +45,8 @@ struct vxhls_cmd {
 	unsigned int data;
 };
 
+typedef int data_t;
+
 /*DMA Channel: for DMA Setup*/
 static struct dma_chan *tx_chan;
 static struct dma_chan *rx_chan;
@@ -64,13 +67,27 @@ static int vxhls_close(struct inode *i, struct file *f) {
 	return 0;
 };
 
-static void xhls_setup_accel(void) {
+static int xhls_setup_accel(void) {
 	u32 data;
+	/*Enable Auto start*/
+	vxhls_write_reg(XHLS_ACCEL_CONTROL_BUS_ADDR_AP_CTRL, 0x80);
+
+	/*Disable Interrupt*/
+	data = vxhls_read_reg(XHLS_ACCEL_CONTROL_BUS_ADDR_IER);
+	vxhls_write_reg(XHLS_ACCEL_CONTROL_BUS_ADDR_IER, 0);
+
 	/*Send START Signal*/
 	data = vxhls_read_reg(XHLS_ACCEL_CONTROL_BUS_ADDR_AP_CTRL);
-	vxhls_write_reg(XHLS_ACCEL_CONTROL_BUS_ADDR_AP_CTRL, data | XHLS_ACCEL_CONTROL_BUS_START_BIT);
-
-	return;
+	printk("XHLS_ACCEL_CONTROL_BUS_ADDR_AP_CTRL: %x\n", data);
+	vxhls_write_reg(XHLS_ACCEL_CONTROL_BUS_ADDR_AP_CTRL, (data & 0x80) | XHLS_ACCEL_CONTROL_BUS_AP_START_BIT);
+	data = vxhls_read_reg(XHLS_ACCEL_CONTROL_BUS_ADDR_AP_CTRL);
+	printk("XHLS_ACCEL_CONTROL_BUS_ADDR_AP_CTRL: %x\n", data);
+	udelay(100);
+	if (!(vxhls_read_reg(XHLS_ACCEL_CONTROL_BUS_ADDR_AP_CTRL) & XHLS_ACCEL_CONTROL_BUS_AP_READY_BIT)) {
+		printk("Accel is not ready\n");
+		return -1;
+	}
+	return 1;
 }
 
 bool xdma_filter_2(struct dma_chan *chan, void *param) {
@@ -209,7 +226,7 @@ static int xhls_wait_output(int *buffer) {
 	}
 
 	printk(KERN_ERR "%s: axidma_start_transfer\n", __FUNCTION__);
-	axidma_start_transfer(rx_chan, &rx_cmp, rx_cookie, NO_WAIT);
+	axidma_start_transfer(rx_chan, &rx_cmp, rx_cookie, WAIT);
 
 	printk(KERN_ERR "%s: dma_unmap_single\n", __FUNCTION__);
 	dma_unmap_single(rx_chan->device->dev, rx_dma_handle, DMA_LENGTH, DMA_FROM_DEVICE);	
@@ -245,11 +262,12 @@ static int xhls_load_input(int index, int *data) {
 
 static int xhls_test(void) {
 	int i, j, ret;
-	int *input_a_dat, *input_b_dat, *ouput_dat, *iptr0, *iptr1;
+	data_t f = 0;
+	data_t *input_a_dat, *input_b_dat, *ouput_dat, *iptr0, *iptr1;
 
-	input_a_dat = kmalloc(MTRX_SIZE * sizeof(int), GFP_KERNEL);
-	input_b_dat = kmalloc(MTRX_SIZE * sizeof(int), GFP_KERNEL);
-	ouput_dat = kmalloc(MTRX_SIZE * sizeof(int), GFP_KERNEL);
+	input_a_dat = kmalloc(MTRX_SIZE * sizeof(data_t), GFP_KERNEL);
+	input_b_dat = kmalloc(MTRX_SIZE * sizeof(data_t), GFP_KERNEL);
+	ouput_dat = kmalloc(MTRX_SIZE * sizeof(data_t), GFP_KERNEL);
 
 	if (!input_a_dat || !input_b_dat) {
 		pr_err("%s: allocating mem for test-data fail!\n", __func__);
@@ -257,56 +275,98 @@ static int xhls_test(void) {
 	}
 
 	iptr0 = input_a_dat;
-	iptr1 = input_b_dat;
 	/*Initialize input*/
 	pr_debug("%s: Initialize Input\n", __func__);
 	for (i = 0; i < MTRX_DIM; i++) {
 		for (j = 0; j < MTRX_DIM; j++) {
-			*iptr0++ = i + j;
-			*iptr1++ = i * j;
+			*iptr0 = f++;
+			printk("%d ", *iptr0);
+			iptr0++;
+		}
+		printk("\n");
+	}
+	pr_debug("\n");
+	iptr0 = input_b_dat;
+	for (i = 0; i < MTRX_DIM; i++) {
+		for (j = 0; j < MTRX_DIM; j++) {
+			if (i == j)
+				*iptr0 = 1;
+			else 
+				*iptr0 = 0;
+			iptr0++;
 		}
 	}
 	pr_debug("%s: call xhls_setup_accel()\n", __func__);
-	xhls_setup_accel();
+	ret = xhls_setup_accel();
+	if (ret < 0) {
+		printk("Setup Accel fail!\n");
+		// goto exit_err;
+	}
 
 	pr_debug("%s: call xhls_setup_dma()\n", __func__);
-	xhls_setup_dma();
+	ret = xhls_setup_dma();
+	if (ret < 0) {
+		goto exit_err;
+	}
 
-	xhls_wait_output(ouput_dat);
-
+	pr_debug("%s: trigger tx_chan\n", __func__);
 	ret = xhls_load_input(INPUT_A, input_a_dat);
 	if (ret < 0) {
 		pr_err("%s: Can not transfer input\n", __func__);
 		goto exit_err;
 	}
 
+	pr_debug("%s: trigger tx_chan\n", __func__);
 	ret = xhls_load_input(INPUT_B, input_b_dat);
 	if (ret < 0) {
 		pr_err("%s: Can not transfer input\n", __func__);
 		goto exit_err;
 	}
 
+	pr_debug("%s: trigger rx_chan\n", __func__);
+	xhls_wait_output(ouput_dat);
+
+	udelay(100);
+	pr_debug("%s: Output\n", __func__);
+	iptr0 = ouput_dat;
+	iptr1 = input_a_dat;
+	for (i = 0; i < MTRX_DIM; i++) {
+		for (j = 0; j < MTRX_DIM; j++) {
+			printk("%d ", *iptr0);
+			// if (*iptr0 != *iptr1) {
+			// 	printk("Failed\n");
+			// 	goto exit_err;
+			// }
+			iptr0++; iptr1++;
+		}
+		printk("\n");
+	}
+	printk("\n");
 	goto exit_success;
 exit_err:
+	if (tx_chan)
+		dma_release_channel(tx_chan);
+	if (rx_chan)
+		dma_release_channel(rx_chan);
 	kfree(input_a_dat);
 	kfree(input_b_dat);
 	kfree(ouput_dat);
 	return -1;
 
 exit_success:
+	dma_release_channel(tx_chan);
+	dma_release_channel(rx_chan);
 	kfree(input_a_dat);
 	kfree(input_b_dat);
 	kfree(ouput_dat);
 	return 1;
 }
 
-int vxhls_ioctl(struct file *f, unsigned int cmd_type, unsigned long arg) {
-	struct vxhls_cmd command;
+int vxhls_ioctl(struct file *f, unsigned int cmd_type) {
 	int rc = 0;
 	/*Copy from command from user to command in kernel*/
-	if (!copy_from_user(&command, (struct vxhls_cmd *)arg, sizeof(struct vxhls_cmd))) {};
-	printk("[VUTT6] Call vxhlsCORE Ioctl, TYPE: %d, REG: %d, VAL: %d\n", 
-		cmd_type, command.addr, command.data);
+	// if (!copy_from_user(&command, (struct vxhls_cmd *)arg, sizeof(struct vxhls_cmd))) {};
+	printk("[VUTT6] Call vxhlsCORE Ioctl, TYPE: %d\n", cmd_type);
 	switch(cmd_type) {
 		case VXHLS_TEST:
 			xhls_test();
