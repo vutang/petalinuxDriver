@@ -89,10 +89,6 @@ struct xilinx_dma_tx_descriptor {
 	bool cyclic;
 };
 
-struct xilinx_dma_chan *vxdma_tx_chan, *vxdma_rx_chan;
-static struct dma_chan *tx_chan;
-static struct dma_chan *rx_chan;
-
 /* Macros */
 #define to_xilinx_chan(chan) \
 	container_of(chan, struct xilinx_dma_chan, common)
@@ -501,7 +497,6 @@ static void xilinx_dma_start(struct xilinx_dma_chan *chan)
  * xilinx_dma_start_transfer - Starts DMA transfer
  * @chan: Driver specific channel struct pointer
  */
-// static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 {
 	struct xilinx_dma_tx_descriptor *head_desc, *tail_desc;
@@ -532,6 +527,7 @@ static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 	if (chan->desc_pendingcount <= XILINX_DMA_COALESCE_MAX) {
 		chan->ctrl_reg &= ~XILINX_DMA_CR_COALESCE_MAX;
 		chan->ctrl_reg |= chan->desc_pendingcount << XILINX_DMA_CR_COALESCE_SHIFT;
+		printk("%s: write XILINX_DMA_REG_CONTROL: 0x%x\n", __FUNCTION__, chan->ctrl_reg);
 		dma_ctrl_write(chan, XILINX_DMA_REG_CONTROL, chan->ctrl_reg);
 	}
 
@@ -540,6 +536,7 @@ static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 		dma_ctrl_writeq(chan, XILINX_DMA_REG_CURDESC,
 			       head_desc->async_tx.phys);
 #else
+		printk("%s: write XILINX_DMA_REG_CURDESC: 0x%x\n", __FUNCTION__, head_desc->async_tx.phys);
 		dma_ctrl_write(chan, XILINX_DMA_REG_CURDESC,
 			       head_desc->async_tx.phys);
 #endif
@@ -557,6 +554,7 @@ static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 		dma_ctrl_writeq(chan, XILINX_DMA_REG_TAILDESC,
 			       tail_segment->phys);
 #else
+		printk("%s: write XILINX_DMA_REG_TAILDESC: 0x%x\n", __FUNCTION__, tail_segment->phys);
 		dma_ctrl_write(chan, XILINX_DMA_REG_TAILDESC,
 			       tail_segment->phys);
 #endif
@@ -568,14 +566,15 @@ static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 					   struct xilinx_dma_tx_segment, node);
 		hw = &segment->hw;
 
-		printk("%s: write XILINX_DMA_REG_SRCDSTADDR: %x\n", __FUNCTION__, hw->buf_addr);
+		printk("%s: write XILINX_DMA_REG_SRCDSTADDR: 0x%x\n", __FUNCTION__, hw->buf_addr);
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
 		dma_ctrl_writeq(chan, XILINX_DMA_REG_SRCDSTADDR, hw->buf_addr);
 #else
 		dma_ctrl_write(chan, XILINX_DMA_REG_SRCDSTADDR, hw->buf_addr);
 #endif
 		/* Start the transfer */
-		printk("%s: write XILINX_DMA_MAX_TRANS_LEN\n", __FUNCTION__);
+		printk("%s: write XILINX_DMA_MAX_TRANS_LEN: %d to start transfer\n", __FUNCTION__, 
+			hw->control & XILINX_DMA_MAX_TRANS_LEN);
 		dma_ctrl_write(chan, XILINX_DMA_REG_BTT,
 			       hw->control & XILINX_DMA_MAX_TRANS_LEN);
 	}
@@ -595,6 +594,7 @@ static void xilinx_dma_issue_pending(struct dma_chan *dchan)
 	unsigned long flags;
 
 	spin_lock_irqsave(&chan->lock, flags);
+	printk(KERN_INFO "%s.call xilinx_dma_start_transfer()\n", __func__);
 	xilinx_dma_start_transfer(chan);
 	spin_unlock_irqrestore(&chan->lock, flags);
 }
@@ -657,11 +657,11 @@ static int xilinx_dma_chan_reset(struct xilinx_dma_chan *chan)
  *
  * Return: IRQ_HANDLED/IRQ_NONE
  */
-static irqreturn_t xilinx_dma_irq_handler(int irq, void *data)
-{
+static irqreturn_t xilinx_dma_irq_handler(int irq, void *data) {
 	struct xilinx_dma_chan *chan = data;
 	u32 status;
 
+	printk(KERN_INFO "%s.Interrupt occurs\n", __func__);
 	/* Read the status and ack the interrupts. */
 	status = dma_ctrl_read(chan, XILINX_DMA_REG_STATUS);
 	if (!(status & XILINX_DMA_XR_IRQ_ALL_MASK))
@@ -692,6 +692,8 @@ static irqreturn_t xilinx_dma_irq_handler(int irq, void *data)
 		spin_lock(&chan->lock);
 		xilinx_dma_complete_descriptor(chan);
 		chan->idle = true;
+		printk(KERN_INFO "%s.call xilinx_dma_start_transfer() for chanid: %d\n", 
+			__func__, chan->id);
 		xilinx_dma_start_transfer(chan);
 		spin_unlock(&chan->lock);
 	}
@@ -704,8 +706,7 @@ static irqreturn_t xilinx_dma_irq_handler(int irq, void *data)
  * xilinx_dma_do_tasklet - Schedule completion tasklet
  * @data: Pointer to the Xilinx dma channel structure
  */
-static void xilinx_dma_do_tasklet(unsigned long data)
-{
+static void xilinx_dma_do_tasklet(unsigned long data) {
 	struct xilinx_dma_chan *chan = (struct xilinx_dma_chan *)data;
 
 	xilinx_dma_chan_desc_cleanup(chan);
@@ -839,10 +840,10 @@ static struct dma_async_tx_descriptor *xilinx_dma_prep_slave_sg(
 			struct xilinx_dma_desc_hw *hw;
 
 			/* Get a free segment */
+			printk("%s.call xilinx_dma_alloc_tx_segment()\n",__func__);
 			segment = xilinx_dma_alloc_tx_segment(chan);
 			if (!segment)
 				goto error;
-
 			/*
 			 * Calculate the maximum number of bytes to transfer,
 			 * making sure it is less than the hw limit
@@ -895,6 +896,7 @@ static struct dma_async_tx_descriptor *xilinx_dma_prep_slave_sg(
 	return &desc->async_tx;
 
 error:
+	printk("%s.error alloc tx segment\n", __func__);
 	xilinx_dma_free_tx_descriptor(chan, desc);
 	return NULL;
 }
@@ -1055,7 +1057,7 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev, struct device_n
 	int err;
 	bool has_dre;
 	u32 value, width = 0, device_id;
-	printk("[VUTT6] DMA Channel probing...\n");
+	printk(KERN_INFO "%s.DMA Channel probing...\n", __func__);
 	/* alloc channel */
 	chan = devm_kzalloc(xdev->dev, sizeof(*chan), GFP_KERNEL);
 	if (!chan)
@@ -1087,12 +1089,10 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev, struct device_n
 		chan->id = 1;
 		chan->ctrl_offset = XILINX_DMA_MM2S_CTRL_OFFSET;
 		chan->direction = DMA_MEM_TO_DEV;
-		vxdma_tx_chan = chan;
 	} else if (of_device_is_compatible(node, "xlnx,axi-dma-s2mm-channel")) {
 		chan->id = 2;
 		chan->ctrl_offset = XILINX_DMA_S2MM_CTRL_OFFSET;
 		chan->direction = DMA_DEV_TO_MEM;
-		vxdma_rx_chan = chan;
 	} else {
 		dev_err(xdev->dev, "Invalid channel compatible node\n");
 		return -EINVAL;
@@ -1108,7 +1108,7 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev, struct device_n
 			(device_id << XILINX_DMA_DEVICE_ID_SHIFT);
 	chan->common.private = (void *)&(chan->private);
 
-	printk("[VUTT6] DMA Channel ID: %d\n", chan->id);
+	printk("%s.DMA Channel ID: %d\n", __func__, chan->id);
 
 	xdev->chan[chan->id] = chan;
 
@@ -1129,6 +1129,7 @@ static int xilinx_dma_chan_probe(struct xilinx_dma_device *xdev, struct device_n
 
 	/* find the IRQ line, if it exists in the device tree */
 	chan->irq = irq_of_parse_and_map(node, 0);
+	printk(KERN_INFO "%s.chan->irq: %d\n", __func__, chan->irq);
 	err = request_irq(chan->irq, xilinx_dma_irq_handler,
 			  IRQF_SHARED,
 			  "xilinx-dma-controller", chan);
@@ -1233,7 +1234,7 @@ static int xilinx_dma_probe(struct platform_device *pdev)
 		goto free_chan_resources;
 	}
 
-	dev_info(&pdev->dev, "[VUTT6] Xilinx AXI DMA Engine driver Probed!!\n");
+	dev_info(&pdev->dev, "Xilinx AXI DMA Engine driver Probed!!\n");
 
 	return 0;
 

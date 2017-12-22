@@ -123,7 +123,7 @@ static void axidma_test_transfer(void)
 	 * zeroing the destination buffer
 	 */
 
-	char *src_dma_buffer = kmalloc(dma_length, GFP_KERNEL);
+	char *src_dma_buffer = kzalloc(dma_length, GFP_KERNEL);
 	char *dest_dma_buffer = kzalloc(dma_length, GFP_KERNEL);
 
 	if (!src_dma_buffer || !dest_dma_buffer) {
@@ -182,7 +182,8 @@ static void axidma_test_transfer(void)
 		}
 	}
 
-	printk(KERN_INFO "DMA bytes sent: %d\n", dma_length);
+	printk(KERN_INFO "%s.DMA bytes sent: %d successfully\n",
+		__func__, dma_length);
 
 	/* Step 11, free the buffers used for DMA back to the kernel
 	 */
@@ -192,7 +193,7 @@ static void axidma_test_transfer(void)
 	return;
 }
 
-bool xdma_filter(struct dma_chan *chan, void *param) {
+bool xdma_filter_2(struct dma_chan *chan, void *param) {
 	printk("%s: is called\n", __func__);
 	if ((chan == NULL) || (chan->private == NULL)) {
 		return false;
@@ -226,11 +227,11 @@ static int __init axidma_init(void)
 	printk(KERN_ERR "%s: dma_request_channel\n", __FUNCTION__);
 	match = (DMA_MEM_TO_DEV & 0xFF) | XILINX_DMA_IP_DMA;
 	// tx_chan = dma_request_channel(mask, NULL, NULL);	
-	tx_chan = dma_request_channel(mask, xdma_filter, (void *) &match);
+	tx_chan = dma_request_channel(mask, xdma_filter_2, (void *) &match);
 	
 	match = (DMA_DEV_TO_MEM & 0xFF) | XILINX_DMA_IP_DMA;
 	// rx_chan = dma_request_channel(mask, NULL, NULL);
-	rx_chan = dma_request_channel(mask, xdma_filter, (void *) &match);
+	rx_chan = dma_request_channel(mask, xdma_filter_2, (void *) &match);
 
 	if (!rx_chan || !tx_chan) { 
 		printk(KERN_INFO "DMA channel request error\n");
@@ -242,8 +243,8 @@ static int __init axidma_init(void)
 	/* Step 12, release the DMA channels back to the DMA engine
 	 */
 
-	// dma_release_channel(tx_chan);
-	// dma_release_channel(rx_chan);
+	dma_release_channel(tx_chan);
+	dma_release_channel(rx_chan);
 
 	return 0;
 }

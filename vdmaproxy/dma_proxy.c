@@ -137,7 +137,7 @@ static dma_cookie_t start_transfer(struct dma_proxy_channel *pchannel_p)
  */
 static void wait_for_transfer(struct dma_proxy_channel *pchannel_p)
 {
-	unsigned long timeout = msecs_to_jiffies(3000);
+	unsigned long timeout = msecs_to_jiffies(10000);
 	enum dma_status status;
 
 	pchannel_p->interface_p->status = PROXY_BUSY;

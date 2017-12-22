@@ -7,10 +7,10 @@
  */
 
 // #define TEST_SIZE (3 * 1024 * 1024)
-#define TEST_SIZE 4096*256
+#define TEST_SIZE 4096*64
 
 struct dma_proxy_channel_interface {
-	unsigned char buffer[TEST_SIZE];
+	int buffer[TEST_SIZE];
 	enum proxy_status { PROXY_NO_ERROR = 0, PROXY_BUSY = 1, PROXY_TIMEOUT = 2, PROXY_ERROR = 3 } status;
 	unsigned int length;
 };
