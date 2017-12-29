@@ -8,7 +8,7 @@ struct commonIp_info{
 };
 
 static const struct of_device_id commonIpcore_of_match[] = {
-	{ .compatible = "xlnx,capture-controller-1.0", .data = IPCORE_CAPCTL},
+	{ .compatible = "xlnx,capCtl-1.0", .data = IPCORE_CAPCTL},
 	{ .compatible = "xlnx,fpga-release-note-v3-3-3.3", .data = IPCORE_FPGAINFO},
 	{ .compatible = "xlnx,led-controller-1.0", .data = IPCORE_LEDCTL},
 	{},

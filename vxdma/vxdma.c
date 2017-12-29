@@ -527,7 +527,7 @@ static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 	if (chan->desc_pendingcount <= XILINX_DMA_COALESCE_MAX) {
 		chan->ctrl_reg &= ~XILINX_DMA_CR_COALESCE_MAX;
 		chan->ctrl_reg |= chan->desc_pendingcount << XILINX_DMA_CR_COALESCE_SHIFT;
-		printk("%s: write XILINX_DMA_REG_CONTROL: 0x%x\n", __FUNCTION__, chan->ctrl_reg);
+		// printk("%s: write XILINX_DMA_REG_CONTROL: 0x%x\n", __FUNCTION__, chan->ctrl_reg);
 		dma_ctrl_write(chan, XILINX_DMA_REG_CONTROL, chan->ctrl_reg);
 	}
 
@@ -536,7 +536,7 @@ static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 		dma_ctrl_writeq(chan, XILINX_DMA_REG_CURDESC,
 			       head_desc->async_tx.phys);
 #else
-		printk("%s: write XILINX_DMA_REG_CURDESC: 0x%x\n", __FUNCTION__, head_desc->async_tx.phys);
+		// printk("%s: write XILINX_DMA_REG_CURDESC: 0x%x\n", __FUNCTION__, head_desc->async_tx.phys);
 		dma_ctrl_write(chan, XILINX_DMA_REG_CURDESC,
 			       head_desc->async_tx.phys);
 #endif
@@ -554,7 +554,7 @@ static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 		dma_ctrl_writeq(chan, XILINX_DMA_REG_TAILDESC,
 			       tail_segment->phys);
 #else
-		printk("%s: write XILINX_DMA_REG_TAILDESC: 0x%x\n", __FUNCTION__, tail_segment->phys);
+		// printk("%s: write XILINX_DMA_REG_TAILDESC: 0x%x\n", __FUNCTION__, tail_segment->phys);
 		dma_ctrl_write(chan, XILINX_DMA_REG_TAILDESC,
 			       tail_segment->phys);
 #endif
@@ -566,15 +566,15 @@ static void xilinx_dma_start_transfer(struct xilinx_dma_chan *chan)
 					   struct xilinx_dma_tx_segment, node);
 		hw = &segment->hw;
 
-		printk("%s: write XILINX_DMA_REG_SRCDSTADDR: 0x%x\n", __FUNCTION__, hw->buf_addr);
+		// printk("%s: write XILINX_DMA_REG_SRCDSTADDR: 0x%x\n", __FUNCTION__, hw->buf_addr);
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
 		dma_ctrl_writeq(chan, XILINX_DMA_REG_SRCDSTADDR, hw->buf_addr);
 #else
 		dma_ctrl_write(chan, XILINX_DMA_REG_SRCDSTADDR, hw->buf_addr);
 #endif
 		/* Start the transfer */
-		printk("%s: write XILINX_DMA_MAX_TRANS_LEN: %d to start transfer\n", __FUNCTION__, 
-			hw->control & XILINX_DMA_MAX_TRANS_LEN);
+		// printk("%s: write XILINX_DMA_MAX_TRANS_LEN: %d to start transfer\n", __FUNCTION__, 
+			// hw->control & XILINX_DMA_MAX_TRANS_LEN);
 		dma_ctrl_write(chan, XILINX_DMA_REG_BTT,
 			       hw->control & XILINX_DMA_MAX_TRANS_LEN);
 	}
@@ -594,7 +594,7 @@ static void xilinx_dma_issue_pending(struct dma_chan *dchan)
 	unsigned long flags;
 
 	spin_lock_irqsave(&chan->lock, flags);
-	printk(KERN_INFO "%s.call xilinx_dma_start_transfer()\n", __func__);
+	// printk(KERN_INFO "%s.call xilinx_dma_start_transfer()\n", __func__);
 	xilinx_dma_start_transfer(chan);
 	spin_unlock_irqrestore(&chan->lock, flags);
 }

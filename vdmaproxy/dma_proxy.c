@@ -100,7 +100,7 @@ static dma_cookie_t start_transfer(struct dma_proxy_channel *pchannel_p)
 	/* Create a buffer (channel)  descriptor for the buffer since only a
 	 * single buffer is being used for this transfer
 	 */
-	printk("%s.call dmaengine_prep_slave_single()\n", __func__);
+	// printk("%s.call dmaengine_prep_slave_single()\n", __func__);
 	chan_desc = dmaengine_prep_slave_single(pchannel_p->channel_p, pchannel_p->dma_handle,
 											interface_p->length,
 											pchannel_p->direction,
@@ -120,13 +120,13 @@ static dma_cookie_t start_transfer(struct dma_proxy_channel *pchannel_p)
 		 * then submit the transaction to the DMA engine so that it's queued
 		 * up to be processed later and get a cookie to track it's status
 		 */
-		printk(KERN_INFO "%s.call dmaengine_submit()\n", __func__);
+		// printk(KERN_INFO "%s.call dmaengine_submit()\n", __func__);
 		init_completion(&pchannel_p->cmp);
 		cookie = dmaengine_submit(chan_desc);
 
 		/* Start the DMA transaction which was previously queued up in the DMA engine
 		 */
-		printk(KERN_INFO "%s.dma_async_issue_pending()\n", __func__);
+		// printk(KERN_INFO "%s.dma_async_issue_pending()\n", __func__);
 		dma_async_issue_pending(pchannel_p->channel_p);
 	}
 	return cookie;
@@ -137,7 +137,7 @@ static dma_cookie_t start_transfer(struct dma_proxy_channel *pchannel_p)
  */
 static void wait_for_transfer(struct dma_proxy_channel *pchannel_p)
 {
-	unsigned long timeout = msecs_to_jiffies(10000);
+	unsigned long timeout = msecs_to_jiffies(5000);
 	enum dma_status status;
 
 	pchannel_p->interface_p->status = PROXY_BUSY;
@@ -196,7 +196,7 @@ static void transfer(struct dma_proxy_channel *pchannel_p)
 	struct dma_proxy_channel_interface *interface_p = pchannel_p->interface_p;
 	u32 map_direction;
 
-	print_channel(pchannel_p);
+	// print_channel(pchannel_p);
 
 	if (cached_buffers) {
 

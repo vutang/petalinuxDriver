@@ -38,7 +38,7 @@ static int plipdev_release(struct inode *inode, struct file *file)
 int plipdev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
-	printk("%s.Receive cmd: %d\n", __func__, cmd);
+	// printk("%s.Receive cmd: %d\n", __func__, cmd);
 	switch(cmd){
 		case RRU_IOC_REG_READ: {
 			plipcore_dev_t *plip_dev;
@@ -57,8 +57,8 @@ int plipdev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 			ret = plip_dev->read(plip_dev, iocReg.addr);
 			iocReg.value = ret;
-			printk("%s.read Reg = %x from Device ID = %d\n", __func__,
-				iocReg.addr, iocReg.id);
+			// printk("%s.read Reg = %x from Device ID = %d\n", __func__,
+				// iocReg.addr, iocReg.id);
 			if (copy_to_user((plip_iocReg_t*)arg, &iocReg, sizeof(plip_iocReg_t)))
 			{
 				ret = -EFAULT;
@@ -85,8 +85,8 @@ int plipdev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 			ret = plip_dev->write(plip_dev, iocReg.addr, iocReg.value);
 			
-			printk("%s.write %x to Reg = %x in Device ID = %d\n", __func__,
-				iocReg.value, iocReg.addr, iocReg.id);
+			// printk("%s.write %x to Reg = %x in Device ID = %d\n", __func__,
+				// iocReg.value, iocReg.addr, iocReg.id);
 
 			break;
 		}

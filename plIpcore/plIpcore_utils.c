@@ -3,7 +3,7 @@
 int ip_core_read(plipcore_dev_t *dev, unsigned addr){
 	int ret;
 
-	ret = ioread32(dev->data + addr);
+	ret = ioread32((u32 *) dev->data + addr);
 
 	return ret;
 }
